@@ -1,0 +1,16 @@
+{
+  "campaign_id": "camp_social_media_2024_001",
+  "budget": 5000.00,
+  "audience": [
+    "tech_enthusiasts",
+    "young_professionals",
+    "startup_founders",
+    "marketing_professionals"
+  ],
+  "creatives": [
+    "creative_video_001",
+    "creative_banner_002",
+    "creative_carousel_003",
+    "creative_story_004"
+  ]
+} 

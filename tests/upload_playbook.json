@@ -1,0 +1,90 @@
+{
+  "playbook_name": "Social Media Campaign Automation",
+  "content": {
+    "steps": [
+      {
+        "step": 1,
+        "action": "analyze_audience",
+        "parameters": {
+          "demographics": ["age", "location", "interests"],
+          "behavior": ["engagement_rate", "preferred_content"]
+        }
+      },
+      {
+        "step": 2,
+        "action": "create_content",
+        "parameters": {
+          "platforms": ["instagram", "facebook", "twitter"],
+          "content_types": ["image", "video", "carousel"],
+          "scheduling": {
+            "frequency": "daily",
+            "optimal_times": ["9:00 AM", "1:00 PM", "6:00 PM"]
+          }
+        }
+      },
+      {
+        "step": 3,
+        "action": "launch_campaign",
+        "parameters": {
+          "budget_allocation": {
+            "instagram": 40,
+            "facebook": 35,
+            "twitter": 25
+          },
+          "duration": "30 days",
+          "optimization": "engagement"
+        }
+      },
+      {
+        "step": 4,
+        "action": "monitor_performance",
+        "parameters": {
+          "metrics": ["reach", "engagement", "conversions", "roi"],
+          "reporting": {
+            "frequency": "weekly",
+            "recipients": ["marketing@company.com", "manager@company.com"]
+          }
+        }
+      },
+      {
+        "step": 5,
+        "action": "optimize_campaign",
+        "parameters": {
+          "triggers": [
+            {
+              "condition": "engagement_rate < 2%",
+              "action": "adjust_targeting"
+            },
+            {
+              "condition": "cpm > $5",
+              "action": "pause_low_performing_ads"
+            }
+          ]
+        }
+      }
+    ],
+    "success_criteria": {
+      "target_reach": 100000,
+      "target_engagement_rate": 3.5,
+      "target_conversions": 500,
+      "target_roi": 3.0
+    },
+    "fallback_strategies": [
+      {
+        "trigger": "low_engagement",
+        "action": "switch_to_video_content"
+      },
+      {
+        "trigger": "high_cpm",
+        "action": "reduce_audience_size"
+      }
+    ]
+  },
+  "version": "2.1",
+  "tags": [
+    "social_media",
+    "automation",
+    "engagement",
+    "multi_platform"
+  ]
+} 
