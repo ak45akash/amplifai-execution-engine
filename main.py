@@ -45,31 +45,38 @@ APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "")
 CLICKHOUSE_URL = os.getenv("CLICKHOUSE_URL", "")
 
-# Debug environment variables
+# Smart configuration detection
+def is_replit_configured() -> bool:
+    """Check if Replit API key is properly configured (not placeholder)"""
+    api_key = os.getenv("REPLIT_API_KEY", "")
+    placeholder_values = ["", "your_replit_api_key_here", "placeholder", "demo", "test"]
+    return bool(api_key) and api_key.lower() not in placeholder_values
+
 def debug_environment():
     """Debug function to check environment variables"""
+    # Get current values
+    replit_key = os.getenv("REPLIT_API_KEY", "")
+    slack_url = os.getenv("SLACK_WEBHOOK_URL", "")
+    clickhouse_url = os.getenv("CLICKHOUSE_URL", "")
+    
     env_vars = {
-        "REPLIT_API_KEY": bool(os.getenv("REPLIT_API_KEY")),
-        "SLACK_WEBHOOK_URL": bool(os.getenv("SLACK_WEBHOOK_URL")),
-        "CLICKHOUSE_URL": bool(os.getenv("CLICKHOUSE_URL")),
+        "REPLIT_API_KEY": "✅ CONFIGURED" if is_replit_configured() else "❌ NOT CONFIGURED",
+        "SLACK_WEBHOOK_URL": "✅ CONFIGURED" if slack_url and slack_url.startswith("https://hooks.slack.com") else "❌ NOT CONFIGURED", 
+        "CLICKHOUSE_URL": "✅ CONFIGURED" if clickhouse_url else "❌ NOT CONFIGURED",
         "APP_NAME": os.getenv("APP_NAME", "Not Set"),
         "APP_VERSION": os.getenv("APP_VERSION", "Not Set"),
         "PORT": os.getenv("PORT", "Not Set"),
     }
     
-    logger.info("🔍 Environment Variables Debug:")
+    print("🔍 Environment Variables Debug:")
     for key, value in env_vars.items():
-        if isinstance(value, bool):
-            status = "✅ SET" if value else "❌ NOT SET"
-            logger.info(f"  {key}: {status}")
-        else:
-            logger.info(f"  {key}: {value}")
+        print(f"  {key}: {value}")
     
-    # Show first few characters of sensitive vars if they exist
-    if os.getenv("REPLIT_API_KEY"):
-        logger.info(f"  REPLIT_API_KEY preview: {os.getenv('REPLIT_API_KEY')[:8]}...")
-    if os.getenv("SLACK_WEBHOOK_URL"):
-        logger.info(f"  SLACK_WEBHOOK_URL preview: {os.getenv('SLACK_WEBHOOK_URL')[:30]}...")
+    # Show previews for configured vars
+    if is_replit_configured():
+        print(f"  REPLIT_API_KEY preview: {replit_key[:8]}...")
+    if slack_url and slack_url.startswith("https://hooks.slack.com"):
+        print(f"  SLACK_WEBHOOK_URL preview: {slack_url[:50]}...")
     
     return env_vars
 
@@ -92,8 +99,8 @@ async def lifespan(app: FastAPI):
     # Debug environment variables
     env_debug = debug_environment()
     
-    # Check configurations with better logic
-    replit_configured = bool(os.getenv("REPLIT_API_KEY"))
+    # Check configurations with smart detection
+    replit_configured = is_replit_configured()
     slack_configured = is_slack_configured()
     
     logger.info(f"Replit API configured: {'✅ Yes' if replit_configured else '❌ No'}")
@@ -145,10 +152,8 @@ async def simulate_replit_webhook(campaign_data: Dict[str, Any]) -> bool:
     In production, this would make an actual HTTP request to Replit
     """
     try:
-        # Get the current API key value
-        current_api_key = os.getenv("REPLIT_API_KEY")
-        
-        if not current_api_key:
+        # Use smart configuration detection
+        if not is_replit_configured():
             logger.warning("Replit API key not configured - simulating webhook call")
             webhook_data = {
                 "api_key": "DEMO_KEY",
@@ -164,6 +169,7 @@ async def simulate_replit_webhook(campaign_data: Dict[str, Any]) -> bool:
             return True
         else:
             # Real webhook call (uncomment when ready)
+            current_api_key = os.getenv("REPLIT_API_KEY")
             headers = {
                 "Authorization": f"Bearer {current_api_key}",
                 "Content-Type": "application/json"
