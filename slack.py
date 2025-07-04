@@ -26,8 +26,12 @@ TIMEOUT_SECONDS = 10
 
 
 def is_slack_configured() -> bool:
-    """Check if Slack webhook is configured"""
-    return bool(SLACK_WEBHOOK_URL)
+    """Check if Slack webhook is configured with a valid URL"""
+    # Re-read the environment variable to ensure we have the latest value
+    webhook_url = os.getenv("SLACK_WEBHOOK_URL", "")
+    
+    # Check if we have a URL and it's a valid Slack webhook URL
+    return bool(webhook_url) and webhook_url.startswith("https://hooks.slack.com/services/")
 
 
 def format_slack_message(
@@ -89,7 +93,10 @@ def send_slack_webhook(payload: Dict[str, Any]) -> bool:
     Returns:
         True if successful, False otherwise
     """
-    if not SLACK_WEBHOOK_URL:
+    # Get the latest webhook URL value
+    webhook_url = os.getenv("SLACK_WEBHOOK_URL", "")
+    
+    if not webhook_url:
         logger.warning("Slack webhook URL not configured")
         return False
     
@@ -100,7 +107,7 @@ def send_slack_webhook(payload: Dict[str, Any]) -> bool:
         }
         
         response = requests.post(
-            SLACK_WEBHOOK_URL,
+            webhook_url,
             json=payload,
             headers=headers,
             timeout=TIMEOUT_SECONDS
@@ -130,7 +137,10 @@ def send_slack_notification(
     emoji: Optional[str] = None
 ) -> bool:
     """Send a simple Slack notification"""
-    if not SLACK_WEBHOOK_URL:
+    # Get the latest webhook URL value
+    webhook_url = os.getenv("SLACK_WEBHOOK_URL", "")
+    
+    if not webhook_url:
         logger.warning("Slack webhook URL not configured")
         return False
     
@@ -150,7 +160,7 @@ def send_slack_notification(
         }
         
         response = requests.post(
-            SLACK_WEBHOOK_URL,
+            webhook_url,
             json=payload,
             headers=headers,
             timeout=TIMEOUT_SECONDS

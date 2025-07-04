@@ -61,22 +61,27 @@ def debug_environment():
     
     env_vars = {
         "REPLIT_API_KEY": "✅ CONFIGURED" if is_replit_configured() else "❌ NOT CONFIGURED",
-        "SLACK_WEBHOOK_URL": "✅ CONFIGURED" if slack_url and slack_url.startswith("https://hooks.slack.com") else "❌ NOT CONFIGURED", 
+        "SLACK_WEBHOOK_URL": "✅ CONFIGURED" if slack_url and slack_url.startswith("https://hooks.slack.com/services/") else "❌ NOT CONFIGURED", 
         "CLICKHOUSE_URL": "✅ CONFIGURED" if clickhouse_url else "❌ NOT CONFIGURED",
         "APP_NAME": os.getenv("APP_NAME", "Not Set"),
         "APP_VERSION": os.getenv("APP_VERSION", "Not Set"),
         "PORT": os.getenv("PORT", "Not Set"),
     }
     
-    print("🔍 Environment Variables Debug:")
+    logger.info("🔍 Environment Variables Debug:")
     for key, value in env_vars.items():
-        print(f"  {key}: {value}")
+        logger.info(f"  {key}: {value}")
     
     # Show previews for configured vars
     if is_replit_configured():
-        print(f"  REPLIT_API_KEY preview: {replit_key[:8]}...")
-    if slack_url and slack_url.startswith("https://hooks.slack.com"):
-        print(f"  SLACK_WEBHOOK_URL preview: {slack_url[:50]}...")
+        logger.info(f"  REPLIT_API_KEY preview: {replit_key[:8]}...")
+    else:
+        logger.info(f"  REPLIT_API_KEY current value: '{replit_key}'")
+        
+    if slack_url and slack_url.startswith("https://hooks.slack.com/services/"):
+        logger.info(f"  SLACK_WEBHOOK_URL preview: {slack_url[:50]}...")
+    else:
+        logger.info(f"  SLACK_WEBHOOK_URL current value: '{slack_url}'")
     
     return env_vars
 
