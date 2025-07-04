@@ -34,7 +34,44 @@ from memory_utils import (
 )
 
 # Load environment variables
+# First try to load from .env file (for local development)
 load_dotenv()
+
+# Configuration with better debugging
+REPLIT_API_KEY = os.getenv("REPLIT_API_KEY", "")
+REPLIT_WEBHOOK_URL = os.getenv("REPLIT_WEBHOOK_URL", "https://api.replit.com/webhook/placeholder")
+APP_NAME = os.getenv("APP_NAME", "AmplifAI Execution Engine v1")
+APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "")
+CLICKHOUSE_URL = os.getenv("CLICKHOUSE_URL", "")
+
+# Debug environment variables
+def debug_environment():
+    """Debug function to check environment variables"""
+    env_vars = {
+        "REPLIT_API_KEY": bool(os.getenv("REPLIT_API_KEY")),
+        "SLACK_WEBHOOK_URL": bool(os.getenv("SLACK_WEBHOOK_URL")),
+        "CLICKHOUSE_URL": bool(os.getenv("CLICKHOUSE_URL")),
+        "APP_NAME": os.getenv("APP_NAME", "Not Set"),
+        "APP_VERSION": os.getenv("APP_VERSION", "Not Set"),
+        "PORT": os.getenv("PORT", "Not Set"),
+    }
+    
+    logger.info("🔍 Environment Variables Debug:")
+    for key, value in env_vars.items():
+        if isinstance(value, bool):
+            status = "✅ SET" if value else "❌ NOT SET"
+            logger.info(f"  {key}: {status}")
+        else:
+            logger.info(f"  {key}: {value}")
+    
+    # Show first few characters of sensitive vars if they exist
+    if os.getenv("REPLIT_API_KEY"):
+        logger.info(f"  REPLIT_API_KEY preview: {os.getenv('REPLIT_API_KEY')[:8]}...")
+    if os.getenv("SLACK_WEBHOOK_URL"):
+        logger.info(f"  SLACK_WEBHOOK_URL preview: {os.getenv('SLACK_WEBHOOK_URL')[:30]}...")
+    
+    return env_vars
 
 # Configure logging
 logging.basicConfig(
@@ -42,12 +79,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# Configuration
-REPLIT_API_KEY = os.getenv("REPLIT_API_KEY", "")
-REPLIT_WEBHOOK_URL = os.getenv("REPLIT_WEBHOOK_URL", "https://api.replit.com/webhook/placeholder")
-APP_NAME = os.getenv("APP_NAME", "AmplifAI Execution Engine v1")
-APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
 
 # Application startup time for uptime calculation
 startup_time = datetime.now()
@@ -57,8 +88,16 @@ startup_time = datetime.now()
 async def lifespan(app: FastAPI):
     """Application lifecycle management"""
     logger.info(f"Starting {APP_NAME} v{APP_VERSION}")
-    logger.info(f"Replit API configured: {'✅ Yes' if REPLIT_API_KEY else '❌ No'}")
-    logger.info(f"Slack integration configured: {'✅ Yes' if is_slack_configured() else '❌ No'}")
+    
+    # Debug environment variables
+    env_debug = debug_environment()
+    
+    # Check configurations with better logic
+    replit_configured = bool(os.getenv("REPLIT_API_KEY"))
+    slack_configured = is_slack_configured()
+    
+    logger.info(f"Replit API configured: {'✅ Yes' if replit_configured else '❌ No'}")
+    logger.info(f"Slack integration configured: {'✅ Yes' if slack_configured else '❌ No'}")
     
     yield
     
@@ -106,7 +145,10 @@ async def simulate_replit_webhook(campaign_data: Dict[str, Any]) -> bool:
     In production, this would make an actual HTTP request to Replit
     """
     try:
-        if not REPLIT_API_KEY:
+        # Get the current API key value
+        current_api_key = os.getenv("REPLIT_API_KEY")
+        
+        if not current_api_key:
             logger.warning("Replit API key not configured - simulating webhook call")
             webhook_data = {
                 "api_key": "DEMO_KEY",
@@ -123,7 +165,7 @@ async def simulate_replit_webhook(campaign_data: Dict[str, Any]) -> bool:
         else:
             # Real webhook call (uncomment when ready)
             headers = {
-                "Authorization": f"Bearer {REPLIT_API_KEY}",
+                "Authorization": f"Bearer {current_api_key}",
                 "Content-Type": "application/json"
             }
             
@@ -528,6 +570,30 @@ async def get_memory_stats_endpoint():
         return JSONResponse(content=stats)
     except Exception as e:
         logger.error(f"Error getting memory stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/debug/env")
+async def debug_env():
+    """Debug endpoint to check environment variables (for development/testing)"""
+    try:
+        env_vars = debug_environment()
+        
+        # Add some additional system info
+        system_info = {
+            "python_path": os.environ.get("PYTHONPATH", "Not Set"),
+            "current_working_directory": os.getcwd(),
+            "environment_count": len(os.environ),
+            "available_env_vars": list(os.environ.keys())[:20]  # First 20 for safety
+        }
+        
+        return JSONResponse(content={
+            "environment_variables": env_vars,
+            "system_info": system_info,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error in debug endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
