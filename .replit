@@ -1,0 +1,28 @@
+modules = ["python-3.11"]
+
+[nix]
+channel = "stable-24_05"
+
+[workflows]
+
+[workflows.runButton]
+name = "Python: FastAPI"
+author = "replit"
+
+[workflows.runButton.args]
+requiredFiles = [".replit", "main.py", "requirements.txt"]
+
+[[workflows.runButton.args.containerImages]]
+image = "python:3.11"
+
+[workflows.runButton.args.ports]
+cmdArgs = ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+name = "uvicorn"
+
+[deployment]
+run = ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 8000
+externalPort = 80 
