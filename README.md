@@ -352,9 +352,8 @@ AmplifAI Execution Engine/
 
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
-| `REPLIT_API_KEY` | Replit API key for webhook calls | No | `""` |
-| `CLICKHOUSE_URL` | ClickHouse database URL | No | `""` |
-| `SLACK_WEBHOOK_URL` | Slack webhook URL for notifications | No | `""` |
+| `CLICKHOUSE_URL` | ClickHouse database URL | Yes | `""` |
+| `SLACK_WEBHOOK_URL` | Slack webhook URL for notifications | Yes | `""` |
 | `APP_NAME` | Application name | No | `AmplifAI Execution Engine v1` |
 | `APP_VERSION` | Application version | No | `1.0.0` |
 | `LOG_LEVEL` | Logging level | No | `INFO` |

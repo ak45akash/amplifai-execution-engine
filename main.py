@@ -826,6 +826,155 @@ async def test_all_integrations():
         })
 
 
+@app.get("/test/pdf-upload", response_class=HTMLResponse)
+async def test_pdf_upload():
+    """
+    Test PDF upload functionality via web interface
+    
+    This endpoint provides a web-based test interface for the PDF upload functionality.
+    It automatically runs the upload test and displays the results in an HTML format.
+    """
+    try:
+        # Check if server is accessible
+        base_url = "http://localhost:8000"
+        test_results = []
+        
+        # Create test PDF content
+        pdf_content = b'%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n2 0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n3 0 obj\n<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n>>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000074 00000 n \n0000000120 00000 n \ntrailer\n<<\n/Size 4\n/Root 1 0 R\n>>\nstartxref\n181\n%%EOF'
+        
+        # Test PDF upload
+        async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
+            files = {"file": ("test.pdf", pdf_content, "application/pdf")}
+            data = {
+                "playbook_name": "Web Test PDF Upload",
+                "version": "1.0",
+                "tags": "test,pdf,web,automation"
+            }
+            
+            start_time = time.time()
+            response = await client.post("/upload-playbook-file", files=files, data=data)
+            duration = round((time.time() - start_time) * 1000, 2)
+            
+            # Parse response
+            response_data = response.json() if response.status_code == 200 else {"error": response.text}
+            
+            test_results.append({
+                "test": "PDF Upload Test",
+                "endpoint": "/upload-playbook-file",
+                "method": "POST",
+                "status": response.status_code,
+                "duration": f"{duration}ms",
+                "success": response.status_code == 200,
+                "response": response_data
+            })
+        
+        # Generate HTML report
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>PDF Upload Test Results</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+                .container { max-width: 1200px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                .header { background-color: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+                .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+                .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+                .test-result { margin: 15px 0; padding: 15px; border-radius: 4px; }
+                .test-details { margin-top: 10px; }
+                .json-response { background-color: #f8f9fa; padding: 10px; border-left: 4px solid #007bff; margin: 10px 0; overflow-x: auto; }
+                .footer { margin-top: 30px; text-align: center; color: #666; }
+                .badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+                .badge-success { background-color: #28a745; color: white; }
+                .badge-error { background-color: #dc3545; color: white; }
+                table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+                th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background-color: #f8f9fa; }
+                .endpoint-info { background-color: #e9ecef; padding: 15px; border-radius: 4px; margin: 15px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📄 PDF Upload Test Results</h1>
+                    <p>AmplifAI Execution Engine v1 - File Upload Validation</p>
+                </div>
+                
+                <div class="endpoint-info">
+                    <h3>🔍 Endpoint Information</h3>
+                    <table>
+                        <tr><th>Endpoint</th><td>/upload-playbook-file</td></tr>
+                        <tr><th>Method</th><td>POST</td></tr>
+                        <tr><th>Content-Type</th><td>multipart/form-data</td></tr>
+                        <tr><th>Required Fields</th><td>file, playbook_name</td></tr>
+                        <tr><th>Optional Fields</th><td>version, tags</td></tr>
+                    </table>
+                </div>
+        """
+        
+        for result in test_results:
+            import json
+            status_class = "success" if result["success"] else "error"
+            badge_class = "badge-success" if result["success"] else "badge-error"
+            status_text = "✅ PASS" if result["success"] else "❌ FAIL"
+            
+            html_content += f"""
+                <div class="test-result {status_class}">
+                    <h3>{result['test']} <span class="badge {badge_class}">{status_text}</span></h3>
+                    <div class="test-details">
+                        <table>
+                            <tr><th>Endpoint</th><td>{result['endpoint']}</td></tr>
+                            <tr><th>Method</th><td>{result['method']}</td></tr>
+                            <tr><th>Status Code</th><td>{result['status']}</td></tr>
+                            <tr><th>Duration</th><td>{result['duration']}</td></tr>
+                        </table>
+                        <div class="json-response">
+                            <strong>Response:</strong><br>
+                            <pre>{json.dumps(result['response'], indent=2)}</pre>
+                        </div>
+                    </div>
+                </div>
+            """
+        
+        html_content += """
+                <div class="footer">
+                    <p>Test executed at """ + datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC') + """</p>
+                    <p>🔄 <a href="/test/pdf-upload">Refresh Test</a> | 📊 <a href="/status">Server Status</a> | 📝 <a href="/docs">API Documentation</a></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return html_content
+        
+    except Exception as e:
+        error_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>PDF Upload Test Error</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }}
+                .container {{ max-width: 800px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                .error {{ background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 20px; border-radius: 4px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="error">
+                    <h2>❌ Test Error</h2>
+                    <p>An error occurred while running the PDF upload test:</p>
+                    <pre>{str(e)}</pre>
+                    <p><a href="/test/pdf-upload">Try Again</a></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        return error_html
+
+
 @app.get("/test-all", response_class=HTMLResponse)
 async def test_all_routes():
     """
@@ -906,6 +1055,7 @@ async def test_all_routes():
         ("GET /test/slack", "get", "/test/slack", None, "Slack integration test"),
         ("GET /test/clickhouse", "get", "/test/clickhouse", None, "ClickHouse integration test"),
         ("GET /test/all", "get", "/test/all", None, "All integrations test"),
+        ("GET /test/pdf-upload", "get", "/test/pdf-upload", None, "PDF upload test"),
         
         # Debug endpoints
         ("GET /debug/secrets", "get", "/debug/secrets", None, "Environment secrets debug"),
