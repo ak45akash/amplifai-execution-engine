@@ -61,17 +61,46 @@ Edit the `.env` file with your configuration:
 # AmplifAI Execution Engine v1 Configuration
 # Copy this file to .env and fill in your actual values
 
-# ClickHouse Database Configuration
-CLICKHOUSE_URL=https://your-clickhouse-instance.com
-
-# Optional: Slack Webhook for Notifications
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-
-# Application Configuration
+# ===========================================
+# APPLICATION CONFIGURATION (REQUIRED)
+# ===========================================
 APP_NAME=AmplifAI Execution Engine v1
 APP_VERSION=1.0.0
 LOG_LEVEL=INFO
+PORT=8000
+
+# ===========================================
+# CLICKHOUSE DATABASE CONFIGURATION (REQUIRED)
+# ===========================================
+CLICKHOUSE_URL=https://your-clickhouse-instance.germanywestcentral.azure.clickhouse.cloud:8443
+CLICKHOUSE_USERNAME=default
+CLICKHOUSE_PASSWORD=your_clickhouse_password
+CLICKHOUSE_DATABASE=AmplifaiLogs
+CLICKHOUSE_TABLE=api_logs
+
+# ===========================================
+# SLACK INTEGRATION (OPTIONAL)
+# ===========================================
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+
+# ===========================================
+# PINECONE VECTOR DATABASE (OPTIONAL)
+# ===========================================
+PINECONE_API_KEY=your_pinecone_api_key
+PINECONE_ENV=your_pinecone_environment
+PINECONE_INDEX_NAME=amplifai-memory
 ```
+
+**Required Variables:**
+- `APP_NAME`, `APP_VERSION`, `LOG_LEVEL`, `PORT`: Basic application configuration
+- `CLICKHOUSE_URL`, `CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD`: ClickHouse database connection
+- `CLICKHOUSE_DATABASE`, `CLICKHOUSE_TABLE`: Database and table names
+
+**Optional Variables:**
+- `SLACK_WEBHOOK_URL`: For real-time notifications
+- `PINECONE_*`: For future semantic memory search capabilities
+
+See `.env.example` for the complete configuration with all available options.
 
 ## 🚀 Quick Start
 
