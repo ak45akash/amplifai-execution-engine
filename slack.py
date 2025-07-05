@@ -193,6 +193,54 @@ def send_slack_notification(
         return False
 
 
+def send_slack_message(payload: Dict[str, Any]) -> bool:
+    """
+    Send a message to Slack using a structured payload
+    This is a wrapper function that accepts rich message formats
+    
+    Args:
+        payload: Slack message payload with text, blocks, etc.
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    # Get the latest webhook URL value
+    webhook_url = os.getenv("SLACK_WEBHOOK_URL", "")
+    
+    if not webhook_url:
+        logger.warning("Slack webhook URL not configured")
+        return False
+    
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "AmplifAI-Execution-Engine/1.0"
+        }
+        
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            headers=headers,
+            timeout=TIMEOUT_SECONDS
+        )
+        
+        response.raise_for_status()
+        
+        if response.text == "ok":
+            logger.info("Slack message sent successfully")
+            return True
+        else:
+            logger.error(f"Slack webhook returned unexpected response: {response.text}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to send Slack message: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error sending Slack message: {e}")
+        return False
+
+
 def send_campaign_notification(
     campaign_id: str,
     budget: float,

@@ -38,9 +38,11 @@ def ensure_log_directory():
 def format_log_entry(data: Dict[str, Any]) -> Dict[str, Any]:
     """Format log entry with consistent structure"""
     
-    # Ensure timestamp is present
+    # Ensure timestamp is present and properly formatted
     if "timestamp" not in data:
         data["timestamp"] = datetime.now().isoformat()
+    elif isinstance(data.get("timestamp"), datetime):
+        data["timestamp"] = data["timestamp"].isoformat()
     
     # Ensure required fields
     formatted_entry = {
@@ -55,6 +57,20 @@ def format_log_entry(data: Dict[str, Any]) -> Dict[str, Any]:
         "error": data.get("error"),
         "metadata": data.get("metadata", {})
     }
+    
+    # Convert any datetime objects to ISO format strings
+    def convert_datetime(obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, dict):
+            return {k: convert_datetime(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_datetime(item) for item in obj]
+        else:
+            return obj
+    
+    # Apply datetime conversion to all fields
+    formatted_entry = {k: convert_datetime(v) for k, v in formatted_entry.items()}
     
     # Remove None values
     formatted_entry = {k: v for k, v in formatted_entry.items() if v is not None}
