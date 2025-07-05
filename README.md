@@ -61,9 +61,6 @@ Edit the `.env` file with your configuration:
 # AmplifAI Execution Engine v1 Configuration
 # Copy this file to .env and fill in your actual values
 
-# Replit API Integration
-REPLIT_API_KEY=your_replit_api_key_here
-
 # ClickHouse Database Configuration
 CLICKHOUSE_URL=https://your-clickhouse-instance.com
 
