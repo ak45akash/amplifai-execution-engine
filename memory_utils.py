@@ -1,6 +1,51 @@
 """
-Memory utilities for AmplifAI Execution Engine v1
-Provides memory storage and retrieval with future Pinecone integration
+Memory Storage Utilities for AmplifAI Execution Engine v1
+==========================================================
+
+Advanced memory management system providing persistent data storage with semantic
+search capabilities and vector database integration. This module handles campaign
+data, playbook storage, and user interaction history with future AI-powered
+retrieval and analytics.
+
+Architecture:
+- **Local File Storage**: JSONL files for immediate persistence and backup
+- **Vector Database Integration**: Future Pinecone integration for semantic search
+- **Memory Categorization**: Structured storage by type (campaigns, playbooks, routes)
+- **Metadata Management**: Rich metadata for filtering and analytics
+- **Search & Retrieval**: Query interface for historical data access
+
+Storage Strategy:
+1. **Immediate Persistence**: All data written to local JSONL files instantly
+2. **Structured Categorization**: Memory entries organized by type and metadata
+3. **Future Vector Storage**: Prepared for Pinecone semantic search integration
+4. **Analytics Ready**: Structured data format optimized for reporting
+5. **Backup & Recovery**: Local files serve as backup for cloud storage
+
+Memory Types:
+- **Campaign Memory**: Campaign launches, budgets, audience targeting, performance
+- **Playbook Memory**: Automation workflows, versions, execution history  
+- **Route Memory**: API routing decisions, module selections, payload routing
+- **User Memory**: User interactions, preferences, session data
+- **System Memory**: Application events, configuration changes, health metrics
+
+Data Structure:
+Each memory entry contains:
+- Unique ID with timestamp and type classification
+- Structured data payload with full context
+- Metadata for filtering, searching, and analytics
+- Version tracking for change management
+- Timestamps for temporal analysis
+
+Future Enhancements:
+- Pinecone vector database for semantic search
+- AI-powered content recommendations
+- Automated tagging and categorization
+- Cross-memory correlation analysis
+- Real-time analytics and insights
+
+Created by: AmplifAI Team
+Dependencies: pathlib, python-dotenv
+Version: 1.0.0
 """
 
 import json

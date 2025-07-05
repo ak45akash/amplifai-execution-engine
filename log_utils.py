@@ -1,6 +1,37 @@
 """
-Logging utilities for AmplifAI Execution Engine v1
-Provides structured logging with ClickHouse simulation
+Logging Utilities for AmplifAI Execution Engine v1
+===================================================
+
+Comprehensive logging pipeline with multi-destination support for enterprise-grade
+application monitoring and data persistence. This module provides structured JSON
+logging with multiple output destinations and seamless integration with production
+database systems.
+
+Architecture:
+- **Console Logging**: Real-time development feedback with structured JSON output
+- **File Logging**: Local JSONL files for backup and offline analysis  
+- **ClickHouse Integration**: Production database logging with authentication
+- **Error Handling**: Graceful degradation when external services are unavailable
+
+Key Features:
+1. Structured JSON logging with consistent schemas
+2. Multi-destination logging pipeline (console + file + database)
+3. Performance tracking with request duration metrics
+4. Background logging to prevent API response delays
+5. Comprehensive error handling and fallback mechanisms
+6. Production-ready ClickHouse Cloud integration
+7. Configurable logging levels and destinations
+
+Data Flow:
+1. API calls generate log entries with structured data
+2. Entries are formatted with consistent JSON schema
+3. Parallel logging to console, files, and ClickHouse
+4. Background processing ensures non-blocking operations
+5. Statistics tracking for monitoring and debugging
+
+Created by: AmplifAI Team
+Dependencies: requests, python-dotenv, pathlib
+Version: 1.0.0
 """
 
 import json
@@ -107,8 +138,58 @@ def log_to_file(data: Dict[str, Any]) -> None:
 
 def log_to_clickhouse_real(data: Dict[str, Any]) -> bool:
     """
-    Real ClickHouse logging implementation (for future use)
-    Currently disabled - will be enabled when CLICKHOUSE_URL is configured
+    Production ClickHouse database logging with comprehensive error handling.
+    
+    This function implements the complete ClickHouse logging pipeline for production
+    environments. It handles authentication, SQL injection prevention, and provides
+    detailed error reporting for debugging connection and data issues.
+    
+    Data Processing:
+    1. Formats log entry with consistent schema
+    2. Converts complex objects to JSON strings for database storage
+    3. Constructs parameterized SQL INSERT statement
+    4. Handles ClickHouse Cloud authentication
+    5. Provides comprehensive error logging and recovery
+    
+    Args:
+        data: Structured log data dictionary containing:
+            - timestamp: ISO format datetime string
+            - endpoint: API endpoint path
+            - payload: Request data (converted to JSON string)
+            - result: Response data (converted to JSON string)
+            - session_id: Optional session identifier
+            - user_id: Optional user identifier
+            - status: Operation status (success/error/warning)
+            - duration_ms: Request processing time in milliseconds
+            - error: Optional error message
+            - metadata: Additional context data
+    
+    Returns:
+        bool: True if logging successful, False if failed
+        
+    Database Schema:
+        The target table (AmplifaiLogs.api_logs) expects these columns:
+        - timestamp: DateTime
+        - endpoint: String
+        - payload: String (JSON)
+        - result: String (JSON)
+        - session_id: String
+        - user_id: String
+        - status: String
+        - duration_ms: Integer
+        - error: String
+        - metadata: String (JSON)
+    
+    Error Handling:
+        - Graceful degradation when ClickHouse is unavailable
+        - Authentication error handling for Cloud instances
+        - Network timeout protection
+        - SQL injection prevention through parameterization
+        - Detailed error logging for debugging
+        
+    Note:
+        Requires CLICKHOUSE_USERNAME and CLICKHOUSE_PASSWORD for authentication.
+        Falls back to console/file logging if database is unavailable.
     """
     if not CLICKHOUSE_URL:
         logger.debug("ClickHouse URL not configured, skipping real ClickHouse logging")

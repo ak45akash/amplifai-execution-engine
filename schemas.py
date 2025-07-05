@@ -1,5 +1,46 @@
 """
-Pydantic schemas for AmplifAI Execution Engine v1
+Pydantic Data Models for AmplifAI Execution Engine v1
+======================================================
+
+Comprehensive data validation and serialization schemas using Pydantic for
+type safety, automatic validation, and API documentation generation. These
+models define the structure and constraints for all API requests and responses.
+
+Features:
+- **Type Safety**: Automatic type checking and conversion
+- **Data Validation**: Field validation with custom constraints
+- **API Documentation**: Auto-generated OpenAPI/Swagger schemas
+- **Serialization**: JSON encoding/decoding with proper formats
+- **Error Handling**: Descriptive validation error messages
+
+Model Categories:
+1. **Campaign Models**: Campaign launch requests and responses
+2. **Playbook Models**: Playbook upload and management schemas
+3. **Routing Models**: Generic routing for dynamic endpoint handling
+4. **System Models**: Health checks, status responses, and monitoring
+5. **Integration Models**: Slack notifications and logging structures
+
+Validation Features:
+- Field constraints (min/max values, string lengths, required fields)
+- Custom validators for business logic
+- Nested model validation for complex objects
+- Automatic documentation with examples
+- Type coercion and error reporting
+
+Usage Patterns:
+- FastAPI endpoint parameter validation
+- Response serialization and formatting
+- Database model definitions
+- API client generation
+- Integration testing and mocking
+
+Documentation:
+Each model includes comprehensive examples and field descriptions
+for automatic API documentation generation via OpenAPI/Swagger.
+
+Created by: AmplifAI Team
+Dependencies: pydantic, typing
+Version: 1.0.0
 """
 
 from pydantic import BaseModel, Field
@@ -8,19 +49,64 @@ from datetime import datetime
 
 
 class CampaignLaunchRequest(BaseModel):
-    """Request model for launching a campaign"""
-    campaign_id: str = Field(..., description="Unique identifier for the campaign")
-    budget: float = Field(..., gt=0, description="Campaign budget in dollars")
-    audience: List[str] = Field(..., min_items=1, description="List of target audience segments")
-    creatives: List[str] = Field(..., min_items=1, description="List of creative asset IDs")
+    """
+    Campaign Launch Request Model
+    
+    Defines the structure and validation rules for campaign launch requests.
+    This model ensures data integrity and provides clear API documentation
+    for client applications and automated testing.
+    
+    Validation Rules:
+    - campaign_id: Must be unique string identifier (no special characters recommended)
+    - budget: Must be positive number (>0) representing dollars
+    - audience: At least one audience segment required
+    - creatives: At least one creative asset required
+    
+    Business Logic:
+    - Campaign IDs should follow naming conventions (e.g., "camp_social_2024_q1")
+    - Budget amounts are in USD and should align with account limits
+    - Audience segments should match predefined targeting categories
+    - Creative IDs should reference existing assets in the creative library
+    
+    Integration:
+    - Used by POST /launch-campaign endpoint
+    - Validated automatically by FastAPI
+    - Generates OpenAPI documentation
+    - Supports JSON serialization for logging and storage
+    """
+    campaign_id: str = Field(
+        ..., 
+        description="Unique identifier for the campaign (e.g., 'social_media_2024_q1')",
+        min_length=3,
+        max_length=100,
+        pattern=r"^[a-zA-Z0-9_-]+$"
+    )
+    budget: float = Field(
+        ..., 
+        gt=0, 
+        description="Campaign budget in USD (must be positive)",
+        example=15000.0
+    )
+    audience: List[str] = Field(
+        ..., 
+        min_items=1, 
+        description="Target audience segments (at least one required)",
+        example=["tech_enthusiasts", "young_professionals"]
+    )
+    creatives: List[str] = Field(
+        ..., 
+        min_items=1, 
+        description="Creative asset IDs from the creative library",
+        example=["video_promo_001", "banner_ad_002"]
+    )
 
     class Config:
         json_schema_extra = {
             "example": {
-                "campaign_id": "camp_001",
-                "budget": 5000.0,
-                "audience": ["tech_enthusiasts", "young_professionals"],
-                "creatives": ["creative_001", "creative_002"]
+                "campaign_id": "social_media_holiday_2024",
+                "budget": 15000.0,
+                "audience": ["holiday_shoppers", "tech_enthusiasts", "young_professionals"],
+                "creatives": ["video_holiday_promo", "banner_gift_guide", "carousel_products"]
             }
         }
 

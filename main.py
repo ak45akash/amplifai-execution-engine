@@ -1,6 +1,30 @@
 """
 AmplifAI Execution Engine v1
-FastAPI application with campaign launch, playbook upload, and routing capabilities
+===============================
+
+A comprehensive FastAPI-based execution engine for campaign management, playbook automation, 
+and intelligent routing. This application serves as the core backend for marketing automation
+workflows with enterprise-grade logging, notifications, and data persistence.
+
+Architecture Overview:
+- FastAPI web framework with async endpoints
+- Background task processing for non-blocking operations
+- Multi-layer data storage (ClickHouse + local files + memory)
+- Real-time Slack notifications
+- Comprehensive error handling and monitoring
+- Auto-generated API documentation
+
+Key Components:
+1. Campaign Management: Launch and track marketing campaigns
+2. Playbook Automation: Upload and process automation workflows
+3. Generic Routing: Dynamic request routing to different modules
+4. Logging Pipeline: Structured logging with ClickHouse integration
+5. Notification System: Real-time Slack alerts and updates
+6. Memory Storage: Persistent data with future semantic search
+
+Created by: AmplifAI Team
+Version: 1.0.0
+License: MIT
 """
 
 import os
@@ -11,6 +35,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 from contextlib import asynccontextmanager
 
+# FastAPI and web framework imports
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -45,24 +70,64 @@ logger = logging.getLogger(__name__)
 # First try to load from .env file (for local development)
 load_dotenv()
 
-# Configuration with better debugging
-# For Replit, environment variables are injected directly at startup
+# ============================================================================
+# CONFIGURATION & ENVIRONMENT SETUP
+# ============================================================================
+
 def get_env_var(key: str, default: str = "") -> str:
-    """Get environment variable with debug logging"""
+    """
+    Retrieve environment variable with comprehensive debug logging.
+    
+    This function provides detailed logging for environment variable loading,
+    which is crucial for debugging deployment issues across different platforms
+    (local development, cloud deployments, containers, etc.).
+    
+    Args:
+        key: Environment variable name to retrieve
+        default: Default value if environment variable is not set
+        
+    Returns:
+        String value of the environment variable or default
+        
+    Note:
+        Logs the presence and length of variables without exposing sensitive values
+    """
     value = os.getenv(key, default)
     logger.info(f"🔍 Environment variable {key}: {'SET' if value else 'NOT SET'} (length: {len(value)})")
     return value
 
-# Note: REPLIT_API_KEY removed as Replit API was retired in October 2022
+# ============================================================================
+# APPLICATION CONFIGURATION
+# ============================================================================
+# These variables control the core application behavior and integrations.
+# They are loaded from environment variables or .env file with fallback defaults.
+
 APP_NAME = get_env_var("APP_NAME", "AmplifAI Execution Engine v1")
 APP_VERSION = get_env_var("APP_VERSION", "1.0.0")
-SLACK_WEBHOOK_URL = get_env_var("SLACK_WEBHOOK_URL")
-CLICKHOUSE_URL = get_env_var("CLICKHOUSE_URL")
 
-# Smart configuration detection
+# Integration endpoints 
+SLACK_WEBHOOK_URL = get_env_var("SLACK_WEBHOOK_URL")  # For real-time notifications
+CLICKHOUSE_URL = get_env_var("CLICKHOUSE_URL")        # For production logging
+
+# ============================================================================
+# ENVIRONMENT DEBUGGING & VALIDATION
+# ============================================================================
 
 def debug_environment():
-    """Debug function to check environment variables"""
+    """
+    Comprehensive environment variable validation and debugging.
+    
+    This function validates all required and optional environment variables,
+    providing detailed feedback about configuration status. It's essential
+    for troubleshooting deployment issues and ensuring proper integration setup.
+    
+    Returns:
+        dict: Environment validation results with status indicators
+        
+    Note:
+        - Variables: APP_NAME, APP_VERSION,SLACK_WEBHOOK_URL, CLICKHOUSE_URL
+        - Provides preview of configured URLs without exposing full values
+    """
     # Get current values
     slack_url = os.getenv("SLACK_WEBHOOK_URL", "")
     clickhouse_url = os.getenv("CLICKHOUSE_URL", "")
@@ -183,14 +248,48 @@ async def launch_campaign(
     background_tasks: BackgroundTasks
 ):
     """
-    Launch a marketing campaign
+    Launch a marketing campaign with comprehensive tracking and notifications.
     
-    This endpoint:
-    1. Validates the campaign request
-    2. Simulates a Replit webhook call
-    3. Logs the operation to ClickHouse
-    4. Sends Slack notification (if configured)
-    5. Stores campaign memory
+    This endpoint orchestrates the complete campaign launch workflow:
+    
+    1. **Validation**: Validates campaign parameters using Pydantic models
+    2. **Processing**: Creates campaign record with unique timestamp
+    3. **Logging**: Logs operation to ClickHouse database and local files
+    4. **Notifications**: Sends real-time Slack notifications to team
+    5. **Memory Storage**: Stores campaign data for future reference and analytics
+    
+    All secondary operations (logging, notifications, storage) are executed as
+    background tasks to ensure fast API response times while maintaining
+    comprehensive data tracking.
+    
+    Args:
+        request: CampaignLaunchRequest containing campaign details
+            - campaign_id: Unique identifier for the campaign
+            - budget: Campaign budget in dollars (must be > 0)
+            - audience: List of target audience segments (min 1 required)
+            - creatives: List of creative asset IDs (min 1 required)
+        background_tasks: FastAPI background task queue for async operations
+    
+    Returns:
+        CampaignLaunchResponse: Success response with campaign details and timestamp
+    
+    Raises:
+        HTTPException: 400 for validation errors, 500 for processing errors
+        
+    Example:
+        POST /launch-campaign
+        {
+            "campaign_id": "social_media_2024_q1",
+            "budget": 15000.0,
+            "audience": ["tech_enthusiasts", "young_professionals"],
+            "creatives": ["video_promo", "banner_ad", "social_post"]
+        }
+    
+    Background Operations:
+        - API call logging with performance metrics
+        - Slack notification to campaign team
+        - Memory storage for campaign analytics
+        - ClickHouse database logging for reporting
     """
     start_time = time.time()
     
