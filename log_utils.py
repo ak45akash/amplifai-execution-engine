@@ -233,6 +233,41 @@ def log_error(
     return log_to_clickhouse(log_entry)
 
 
+def test_clickhouse_connection() -> bool:
+    """
+    Test ClickHouse connection
+    """
+    try:
+        if not CLICKHOUSE_URL:
+            logger.info("ClickHouse URL not configured")
+            return False
+        
+        # Try to ping the ClickHouse instance
+        test_query = "SELECT 1"
+        headers = {
+            "Content-Type": "text/plain",
+            "User-Agent": "AmplifAI-Execution-Engine/1.0"
+        }
+        
+        # Most ClickHouse instances support a simple ping via HTTP
+        response = requests.get(
+            f"{CLICKHOUSE_URL}/ping",
+            headers=headers,
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            logger.info("ClickHouse connection test successful")
+            return True
+        else:
+            logger.error(f"ClickHouse connection test failed: HTTP {response.status_code}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"ClickHouse connection test failed: {e}")
+        return False
+
+
 def get_log_stats() -> Dict[str, Any]:
     """
     Get basic statistics about logged entries

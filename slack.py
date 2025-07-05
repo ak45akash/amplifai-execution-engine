@@ -30,8 +30,18 @@ def is_slack_configured() -> bool:
     # Re-read the environment variable to ensure we have the latest value
     webhook_url = os.getenv("SLACK_WEBHOOK_URL", "")
     
+    # Enhanced debugging for Replit environment
+    logger.info(f"🔍 Slack configuration check:")
+    logger.info(f"  SLACK_WEBHOOK_URL value: '{webhook_url}'")
+    logger.info(f"  URL length: {len(webhook_url)}")
+    logger.info(f"  Starts with https://hooks.slack.com/services/: {webhook_url.startswith('https://hooks.slack.com/services/')}")
+    
     # Check if we have a URL and it's a valid Slack webhook URL
-    return bool(webhook_url) and webhook_url.startswith("https://hooks.slack.com/services/")
+    is_configured = bool(webhook_url) and webhook_url.startswith("https://hooks.slack.com/services/")
+    
+    logger.info(f"  Final result: {'✅ CONFIGURED' if is_configured else '❌ NOT CONFIGURED'}")
+    
+    return is_configured
 
 
 def format_slack_message(

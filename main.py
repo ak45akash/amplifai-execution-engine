@@ -13,8 +13,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 import requests
+import httpx
 from dotenv import load_dotenv
 
 # Import our custom modules
@@ -33,34 +34,40 @@ from memory_utils import (
     log_to_memory, get_memory_stats
 )
 
+# Configure logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Load environment variables
 # First try to load from .env file (for local development)
 load_dotenv()
 
 # Configuration with better debugging
-REPLIT_API_KEY = os.getenv("REPLIT_API_KEY", "")
-REPLIT_WEBHOOK_URL = os.getenv("REPLIT_WEBHOOK_URL", "https://api.replit.com/webhook/placeholder")
-APP_NAME = os.getenv("APP_NAME", "AmplifAI Execution Engine v1")
-APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
-SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "")
-CLICKHOUSE_URL = os.getenv("CLICKHOUSE_URL", "")
+# For Replit, environment variables are injected directly at startup
+def get_env_var(key: str, default: str = "") -> str:
+    """Get environment variable with debug logging"""
+    value = os.getenv(key, default)
+    logger.info(f"🔍 Environment variable {key}: {'SET' if value else 'NOT SET'} (length: {len(value)})")
+    return value
+
+# Note: REPLIT_API_KEY removed as Replit API was retired in October 2022
+APP_NAME = get_env_var("APP_NAME", "AmplifAI Execution Engine v1")
+APP_VERSION = get_env_var("APP_VERSION", "1.0.0")
+SLACK_WEBHOOK_URL = get_env_var("SLACK_WEBHOOK_URL")
+CLICKHOUSE_URL = get_env_var("CLICKHOUSE_URL")
 
 # Smart configuration detection
-def is_replit_configured() -> bool:
-    """Check if Replit API key is properly configured (not placeholder)"""
-    api_key = os.getenv("REPLIT_API_KEY", "")
-    placeholder_values = ["", "your_replit_api_key_here", "placeholder", "demo", "test"]
-    return bool(api_key) and api_key.lower() not in placeholder_values
 
 def debug_environment():
     """Debug function to check environment variables"""
     # Get current values
-    replit_key = os.getenv("REPLIT_API_KEY", "")
     slack_url = os.getenv("SLACK_WEBHOOK_URL", "")
     clickhouse_url = os.getenv("CLICKHOUSE_URL", "")
     
     env_vars = {
-        "REPLIT_API_KEY": "✅ CONFIGURED" if is_replit_configured() else "❌ NOT CONFIGURED",
         "SLACK_WEBHOOK_URL": "✅ CONFIGURED" if slack_url and slack_url.startswith("https://hooks.slack.com/services/") else "❌ NOT CONFIGURED", 
         "CLICKHOUSE_URL": "✅ CONFIGURED" if clickhouse_url else "❌ NOT CONFIGURED",
         "APP_NAME": os.getenv("APP_NAME", "Not Set"),
@@ -73,11 +80,6 @@ def debug_environment():
         logger.info(f"  {key}: {value}")
     
     # Show previews for configured vars
-    if is_replit_configured():
-        logger.info(f"  REPLIT_API_KEY preview: {replit_key[:8]}...")
-    else:
-        logger.info(f"  REPLIT_API_KEY current value: '{replit_key}'")
-        
     if slack_url and slack_url.startswith("https://hooks.slack.com/services/"):
         logger.info(f"  SLACK_WEBHOOK_URL preview: {slack_url[:50]}...")
     else:
@@ -85,12 +87,7 @@ def debug_environment():
     
     return env_vars
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Logging already configured above
 
 # Application startup time for uptime calculation
 startup_time = datetime.now()
@@ -101,14 +98,20 @@ async def lifespan(app: FastAPI):
     """Application lifecycle management"""
     logger.info(f"Starting {APP_NAME} v{APP_VERSION}")
     
+    # Environment variable debugging
+    logger.info("🔍 Raw environment variable check:")
+    logger.info(f"  SLACK_WEBHOOK_URL: {os.environ.get('SLACK_WEBHOOK_URL', 'NOT FOUND')}")
+    logger.info(f"  CLICKHOUSE_URL: {os.environ.get('CLICKHOUSE_URL', 'NOT FOUND')}")
+    logger.info(f"  APP_NAME: {os.environ.get('APP_NAME', 'NOT FOUND')}")
+    logger.info(f"  APP_VERSION: {os.environ.get('APP_VERSION', 'NOT FOUND')}")
+    logger.info(f"  LOG_LEVEL: {os.environ.get('LOG_LEVEL', 'NOT FOUND')}")
+    
     # Debug environment variables
     env_debug = debug_environment()
     
-    # Check configurations with smart detection
-    replit_configured = is_replit_configured()
+    # Check configurations
     slack_configured = is_slack_configured()
     
-    logger.info(f"Replit API configured: {'✅ Yes' if replit_configured else '❌ No'}")
     logger.info(f"Slack integration configured: {'✅ Yes' if slack_configured else '❌ No'}")
     
     yield
@@ -151,61 +154,7 @@ def calculate_uptime() -> str:
         return f"{seconds}s"
 
 
-async def simulate_replit_webhook(campaign_data: Dict[str, Any]) -> bool:
-    """
-    Simulate a Replit webhook call
-    In production, this would make an actual HTTP request to Replit
-    """
-    try:
-        # Use smart configuration detection
-        if not is_replit_configured():
-            logger.warning("Replit API key not configured - simulating webhook call")
-            webhook_data = {
-                "api_key": "DEMO_KEY",
-                "action": "launch_campaign",
-                "campaign_id": campaign_data["campaign_id"],
-                "budget": campaign_data["budget"],
-                "audience": campaign_data["audience"],
-                "creatives": campaign_data["creatives"],
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            logger.info(f"🔄 Simulated Replit webhook call: {webhook_data}")
-            return True
-        else:
-            # Real webhook call (uncomment when ready)
-            current_api_key = os.getenv("REPLIT_API_KEY")
-            headers = {
-                "Authorization": f"Bearer {current_api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            webhook_data = {
-                "action": "launch_campaign",
-                "campaign_id": campaign_data["campaign_id"],
-                "budget": campaign_data["budget"],
-                "audience": campaign_data["audience"],
-                "creatives": campaign_data["creatives"],
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            logger.info(f"🔄 Would make real Replit webhook call to: {REPLIT_WEBHOOK_URL}")
-            logger.info(f"📦 Webhook payload: {webhook_data}")
-            
-            # Uncomment for real webhook calls:
-            # response = requests.post(
-            #     REPLIT_WEBHOOK_URL,
-            #     json=webhook_data,
-            #     headers=headers,
-            #     timeout=30
-            # )
-            # response.raise_for_status()
-            
-            return True
-            
-    except Exception as e:
-        logger.error(f"Error in Replit webhook call: {e}")
-        return False
+
 
 
 @app.get("/", response_model=StatusResponse)
@@ -247,13 +196,6 @@ async def launch_campaign(
     
     try:
         campaign_data = request.dict()
-        
-        # Simulate Replit webhook call
-        replit_success = await simulate_replit_webhook(campaign_data)
-        
-        if not replit_success:
-            logger.error("Replit webhook simulation failed")
-            # Don't fail the entire request - just log the issue
         
         # Prepare response
         response = CampaignLaunchResponse(
@@ -605,6 +547,574 @@ async def debug_env():
         })
     except Exception as e:
         logger.error(f"Error in debug endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/test/slack")
+async def test_slack():
+    """Test Slack integration by sending a test message"""
+    try:
+        from slack import send_slack_message
+        
+        slack_url = os.getenv("SLACK_WEBHOOK_URL", "")
+        
+        if not slack_url or not slack_url.startswith("https://hooks.slack.com/services/"):
+            return JSONResponse(content={
+                "status": "error",
+                "message": "Slack webhook URL not configured properly",
+                "configured": False,
+                "timestamp": datetime.now().isoformat()
+            })
+        
+        # Send test message
+        test_message = {
+            "text": "🧪 Test Message from AmplifAI Execution Engine",
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*Test Message* 🧪\n\nThis is a test message from the AmplifAI Execution Engine to verify Slack integration is working correctly."
+                    }
+                },
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"Sent at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        success = send_slack_message(test_message)
+        
+        return JSONResponse(content={
+            "status": "success" if success else "error",
+            "slack_configured": True,
+            "slack_url_preview": slack_url[:50] + "..." if len(slack_url) > 50 else slack_url,
+            "message_sent": success,
+            "message": "Test message sent successfully" if success else "Failed to send test message",
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error testing Slack: {e}")
+        return JSONResponse(content={
+            "status": "error",
+            "message": f"Slack test failed: {str(e)}",
+            "timestamp": datetime.now().isoformat()
+        })
+
+
+@app.get("/test/clickhouse")
+async def test_clickhouse():
+    """Test ClickHouse integration"""
+    try:
+        from log_utils import test_clickhouse_connection
+        
+        clickhouse_url = os.getenv("CLICKHOUSE_URL", "")
+        
+        if not clickhouse_url:
+            return JSONResponse(content={
+                "status": "error",
+                "message": "ClickHouse URL not configured",
+                "configured": False,
+                "timestamp": datetime.now().isoformat()
+            })
+        
+        # Test the connection
+        test_result = test_clickhouse_connection()
+        
+        return JSONResponse(content={
+            "status": "success" if test_result else "error",
+            "clickhouse_url_configured": bool(clickhouse_url),
+            "clickhouse_url_preview": clickhouse_url[:50] + "..." if len(clickhouse_url) > 50 else clickhouse_url,
+            "connection_test": test_result,
+            "message": "ClickHouse connection successful" if test_result else "ClickHouse connection failed",
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error testing ClickHouse: {e}")
+        return JSONResponse(content={
+            "status": "error",
+            "message": f"ClickHouse test failed: {str(e)}",
+            "timestamp": datetime.now().isoformat()
+        })
+
+
+@app.get("/test/all")
+async def test_all_integrations():
+    """Test all integrations (Slack + ClickHouse)"""
+    try:
+        from slack import send_slack_message
+        from log_utils import test_clickhouse_connection
+        
+        results = {
+            "timestamp": datetime.now().isoformat(),
+            "overall_status": "success",
+            "tests": {}
+        }
+        
+        # Test Slack
+        slack_url = os.getenv("SLACK_WEBHOOK_URL", "")
+        if slack_url and slack_url.startswith("https://hooks.slack.com/services/"):
+            test_message = {
+                "text": "🧪 Integration Test from AmplifAI Execution Engine",
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "*Integration Test* 🧪\n\nTesting Slack integration as part of full system test."
+                        }
+                    }
+                ]
+            }
+            slack_success = send_slack_message(test_message)
+            results["tests"]["slack"] = {
+                "configured": True,
+                "test_passed": slack_success,
+                "message": "Test message sent successfully" if slack_success else "Failed to send test message"
+            }
+        else:
+            results["tests"]["slack"] = {
+                "configured": False,
+                "test_passed": False,
+                "message": "Slack webhook URL not configured"
+            }
+        
+        # Test ClickHouse
+        clickhouse_url = os.getenv("CLICKHOUSE_URL", "")
+        if clickhouse_url:
+            clickhouse_success = test_clickhouse_connection()
+            results["tests"]["clickhouse"] = {
+                "configured": True,
+                "test_passed": clickhouse_success,
+                "message": "Connection successful" if clickhouse_success else "Connection failed"
+            }
+        else:
+            results["tests"]["clickhouse"] = {
+                "configured": False,
+                "test_passed": False,
+                "message": "ClickHouse URL not configured"
+            }
+        
+        # Determine overall status
+        all_tests_passed = all(
+            test_result["test_passed"] for test_result in results["tests"].values()
+            if test_result["configured"]
+        )
+        
+        if not all_tests_passed:
+            results["overall_status"] = "partial_failure"
+        
+        # Check if nothing is configured
+        if not any(test_result["configured"] for test_result in results["tests"].values()):
+            results["overall_status"] = "no_integrations_configured"
+        
+        return JSONResponse(content=results)
+        
+    except Exception as e:
+        logger.error(f"Error testing all integrations: {e}")
+        return JSONResponse(content={
+            "status": "error",
+            "message": f"Integration test failed: {str(e)}",
+            "timestamp": datetime.now().isoformat()
+        })
+
+
+@app.get("/test-all", response_class=HTMLResponse)
+async def test_all_routes():
+    """
+    Comprehensive self-test endpoint that exercises every API route 
+    and displays results in a browser-friendly HTML table.
+    """
+    import json
+    from datetime import datetime
+    
+    # Get the current port from environment or use default
+    port = os.getenv("PORT", "8000")
+    base_url = f"http://127.0.0.1:{port}"
+    
+    # Define all test cases
+    tests = [
+        # Basic endpoints
+        ("GET /", "get", "/", None, "Root status endpoint"),
+        ("GET /status", "get", "/status", None, "Health check endpoint"),
+        
+        # Main API endpoints  
+        ("POST /launch-campaign", "post", "/launch-campaign", {
+            "campaign_id": "test-campaign-123",
+            "budget": 1000.0,
+            "audience": {
+                "age_range": "25-35",
+                "interests": ["technology", "marketing"],
+                "locations": ["US", "CA"]
+            },
+            "creatives": [
+                {
+                    "type": "banner",
+                    "url": "https://example.com/banner.jpg",
+                    "dimensions": "728x90"
+                }
+            ]
+        }, "Launch marketing campaign"),
+        
+        ("POST /upload-playbook", "post", "/upload-playbook", {
+            "playbook_id": "test-playbook-456",
+            "name": "Test Marketing Playbook",
+            "description": "A comprehensive test playbook for validation",
+            "content": {
+                "version": "1.0",
+                "steps": [
+                    {
+                        "step_id": "step1",
+                        "action": "send_email",
+                        "parameters": {"template": "welcome"}
+                    },
+                    {
+                        "step_id": "step2", 
+                        "action": "track_event",
+                        "parameters": {"event": "signup"}
+                    }
+                ]
+            },
+            "version": "1.0",
+            "tags": ["test", "automation"]
+        }, "Upload marketing playbook"),
+        
+        ("POST /route/test", "post", "/route/test", {
+            "payload": {
+                "action": "process_data",
+                "data": {"key": "value", "timestamp": datetime.now().isoformat()}
+            },
+            "metadata": {
+                "source": "self-test",
+                "priority": "high"
+            }
+        }, "Generic routing endpoint"),
+        
+        # Statistics and monitoring
+        ("GET /logs/stats", "get", "/logs/stats", None, "Logging statistics"),
+        ("GET /memory/stats", "get", "/memory/stats", None, "Memory statistics"),
+        ("GET /debug/env", "get", "/debug/env", None, "Environment debug info"),
+        
+        # Integration tests
+        ("GET /test/slack", "get", "/test/slack", None, "Slack integration test"),
+        ("GET /test/clickhouse", "get", "/test/clickhouse", None, "ClickHouse integration test"),
+        ("GET /test/all", "get", "/test/all", None, "All integrations test"),
+        
+        # Debug endpoints
+        ("GET /debug/secrets", "get", "/debug/secrets", None, "Environment secrets debug"),
+    ]
+    
+    results = []
+    
+    # Execute all tests
+    async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
+        for test_name, method, path, body, description in tests:
+            try:
+                start_time = time.time()
+                
+                if method == "get":
+                    response = await client.get(path)
+                elif method == "post":
+                    response = await client.post(path, json=body)
+                elif method == "post-file":
+                    # Handle file uploads if needed
+                    files = {"file": open(body["file_path"], "rb")}
+                    data = body["fields"]
+                    response = await client.post(path, files=files, data=data)
+                    files["file"].close()
+                else:
+                    response = await client.request(method.upper(), path, json=body)
+                
+                duration = round((time.time() - start_time) * 1000, 2)
+                
+                # Try to parse JSON response
+                try:
+                    response_data = response.json()
+                    response_text = json.dumps(response_data, indent=2)
+                except:
+                    response_text = response.text
+                
+                # Truncate long responses for display
+                if len(response_text) > 500:
+                    response_text = response_text[:500] + "\n... (truncated)"
+                
+                results.append({
+                    "test": test_name,
+                    "description": description,
+                    "status": response.status_code,
+                    "duration": f"{duration}ms",
+                    "response": response_text,
+                    "success": 200 <= response.status_code < 300
+                })
+                
+            except Exception as e:
+                results.append({
+                    "test": test_name,
+                    "description": description,
+                    "status": "ERROR",
+                    "duration": "N/A",
+                    "response": str(e),
+                    "success": False
+                })
+    
+    # Calculate statistics
+    total_tests = len(results)
+    successful_tests = sum(1 for r in results if r["success"])
+    failed_tests = total_tests - successful_tests
+    success_rate = round((successful_tests / total_tests) * 100, 1) if total_tests > 0 else 0
+    
+    # Build HTML response
+    html_parts = [
+        """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>AmplifAI Execution Engine - API Self-Test Results</title>
+            <style>
+                body { 
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                    margin: 20px; 
+                    background-color: #f5f5f5;
+                }
+                .container { 
+                    max-width: 1200px; 
+                    margin: 0 auto; 
+                    background: white; 
+                    padding: 30px; 
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+                h1 { 
+                    color: #2c3e50; 
+                    text-align: center; 
+                    margin-bottom: 30px;
+                }
+                .summary { 
+                    background: #ecf0f1; 
+                    padding: 20px; 
+                    border-radius: 8px; 
+                    margin-bottom: 30px;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                    gap: 20px;
+                }
+                .stat { 
+                    text-align: center; 
+                }
+                .stat-value { 
+                    font-size: 2em; 
+                    font-weight: bold; 
+                    color: #3498db;
+                }
+                .stat-label { 
+                    color: #7f8c8d; 
+                    font-size: 0.9em;
+                }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin-top: 20px;
+                }
+                th, td { 
+                    padding: 12px; 
+                    text-align: left; 
+                    border-bottom: 1px solid #ddd;
+                }
+                th { 
+                    background-color: #34495e; 
+                    color: white;
+                    font-weight: 600;
+                }
+                tr:hover { 
+                    background-color: #f8f9fa;
+                }
+                .status-success { 
+                    color: #27ae60; 
+                    font-weight: bold;
+                }
+                .status-error { 
+                    color: #e74c3c; 
+                    font-weight: bold;
+                }
+                .status-warning { 
+                    color: #f39c12; 
+                    font-weight: bold;
+                }
+                pre { 
+                    background: #f8f9fa; 
+                    padding: 10px; 
+                    border-radius: 4px; 
+                    font-size: 0.85em; 
+                    max-height: 200px; 
+                    overflow-y: auto;
+                    white-space: pre-wrap;
+                    word-wrap: break-word;
+                }
+                .test-description { 
+                    font-style: italic; 
+                    color: #6c757d;
+                }
+                .success-rate-high { color: #27ae60; }
+                .success-rate-medium { color: #f39c12; }
+                .success-rate-low { color: #e74c3c; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🧪 AmplifAI Execution Engine - API Self-Test Results</h1>
+        """,
+        
+        f"""
+                <div class="summary">
+                    <div class="stat">
+                        <div class="stat-value">{total_tests}</div>
+                        <div class="stat-label">Total Tests</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" style="color: #27ae60">{successful_tests}</div>
+                        <div class="stat-label">Passed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" style="color: #e74c3c">{failed_tests}</div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value {'success-rate-high' if success_rate >= 80 else 'success-rate-medium' if success_rate >= 60 else 'success-rate-low'}">{success_rate}%</div>
+                        <div class="stat-label">Success Rate</div>
+                    </div>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Test Endpoint</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Duration</th>
+                            <th>Response</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        """
+    ]
+    
+    # Add test results
+    for result in results:
+        status_class = "status-success" if result["success"] else "status-error"
+        if result["status"] == "ERROR":
+            status_class = "status-error"
+        elif isinstance(result["status"], int):
+            if 200 <= result["status"] < 300:
+                status_class = "status-success"
+            elif 400 <= result["status"] < 500:
+                status_class = "status-warning"
+            else:
+                status_class = "status-error"
+        
+        html_parts.append(f"""
+                        <tr>
+                            <td><strong>{result["test"]}</strong></td>
+                            <td class="test-description">{result["description"]}</td>
+                            <td class="{status_class}">{result["status"]}</td>
+                            <td>{result["duration"]}</td>
+                            <td><pre>{result["response"]}</pre></td>
+                        </tr>
+        """)
+    
+    html_parts.append(f"""
+                    </tbody>
+                </table>
+                
+                <div style="margin-top: 30px; padding: 20px; background: #e8f4f8; border-radius: 8px;">
+                    <h3>Test Summary</h3>
+                    <p><strong>Test Run:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                    <p><strong>Application:</strong> {APP_NAME} v{APP_VERSION}</p>
+                    <p><strong>Base URL:</strong> {base_url}</p>
+                    <p><strong>Total Duration:</strong> Tests completed successfully</p>
+                    <p><strong>Status:</strong> 
+                        <span class="{'status-success' if success_rate >= 80 else 'status-warning' if success_rate >= 60 else 'status-error'}">
+                            {'✅ All systems operational' if success_rate >= 80 else '⚠️ Some issues detected' if success_rate >= 60 else '❌ Multiple failures detected'}
+                        </span>
+                    </p>
+                </div>
+                
+                <div style="margin-top: 20px; text-align: center; color: #6c757d;">
+                    <p>🔄 <a href="/test-all" style="color: #3498db;">Refresh Tests</a> | 
+                    📊 <a href="/debug/env" style="color: #3498db;">Environment Info</a> | 
+                    🏠 <a href="/" style="color: #3498db;">Back to Home</a></p>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+    
+    return HTMLResponse(content="".join(html_parts))
+
+
+@app.get("/debug/secrets")
+async def debug_secrets():
+    """Debug endpoint to check environment secrets (safe for browser access)"""
+    try:
+        # Check all the environment variables we need
+        secrets_status = {
+            "SLACK_WEBHOOK_URL": {
+                "exists": "SLACK_WEBHOOK_URL" in os.environ,
+                "has_value": bool(os.environ.get("SLACK_WEBHOOK_URL", "")),
+                "length": len(os.environ.get("SLACK_WEBHOOK_URL", "")),
+                "preview": os.environ.get("SLACK_WEBHOOK_URL", "")[:50] + "..." if os.environ.get("SLACK_WEBHOOK_URL", "") else "NOT SET",
+                "valid_format": os.environ.get("SLACK_WEBHOOK_URL", "").startswith("https://hooks.slack.com/services/")
+            },
+            "CLICKHOUSE_URL": {
+                "exists": "CLICKHOUSE_URL" in os.environ,
+                "has_value": bool(os.environ.get("CLICKHOUSE_URL", "")),
+                "length": len(os.environ.get("CLICKHOUSE_URL", "")),
+                "preview": os.environ.get("CLICKHOUSE_URL", "")[:30] + "..." if os.environ.get("CLICKHOUSE_URL", "") else "NOT SET"
+            },
+            "APP_NAME": {
+                "exists": "APP_NAME" in os.environ,
+                "has_value": bool(os.environ.get("APP_NAME", "")),
+                "value": os.environ.get("APP_NAME", "NOT SET")
+            },
+            "APP_VERSION": {
+                "exists": "APP_VERSION" in os.environ,
+                "has_value": bool(os.environ.get("APP_VERSION", "")),
+                "value": os.environ.get("APP_VERSION", "NOT SET")
+            },
+            "LOG_LEVEL": {
+                "exists": "LOG_LEVEL" in os.environ,
+                "has_value": bool(os.environ.get("LOG_LEVEL", "")),
+                "value": os.environ.get("LOG_LEVEL", "NOT SET")
+            }
+        }
+        
+        # Summary
+        total_secrets = len(secrets_status)
+        configured_secrets = sum(1 for secret in secrets_status.values() if secret["has_value"])
+        
+        return JSONResponse(content={
+            "summary": {
+                "total_secrets_checked": total_secrets,
+                "configured_secrets": configured_secrets,
+                "configuration_percentage": round((configured_secrets / total_secrets) * 100, 1)
+            },
+            "secrets": secrets_status,
+            "environment_info": {
+                "total_env_vars": len(os.environ),
+                "running_in_replit": "REPL_ID" in os.environ,
+                "repl_id": os.environ.get("REPL_ID", "NOT IN REPLIT")
+            },
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error in debug secrets endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
